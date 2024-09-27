@@ -90,6 +90,8 @@ frappe.ui.form.on("Leave Application", {
 	},
 
 	refresh: function (frm) {
+		hrms.leave_utils.add_view_ledger_button(frm);
+
 		if (frm.is_new()) {
 			frm.trigger("calculate_total_days");
 		}
@@ -102,13 +104,16 @@ frappe.ui.form.on("Leave Application", {
 			frm.perm[0].submit &&
 			!frm.is_dirty() &&
 			!frm.is_new() &&
-			!frappe.model.has_workflow(this.doctype) &&
+			!frappe.model.has_workflow(frm.doctype) &&
 			frm.doc.docstatus === 0
 		) {
 			frm.set_intro(__("Submit this Leave Application to confirm."));
 		}
 
 		frm.trigger("set_employee");
+		if (frm.doc.docstatus === 0) {
+			frm.trigger("make_dashboard");
+		}
 	},
 
 	async set_employee(frm) {

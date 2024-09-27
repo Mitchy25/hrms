@@ -1,15 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [develop, version-14-hotfix, version-14]
-    paths-ignore:
-      - "**.css"
-      - "**.js"
-      - "**.md"
-      - "**.html"
-      - "**.csv"
-
   pull_request:
     paths-ignore:
       - "**.css"
@@ -45,12 +36,12 @@ jobs:
 
     services:
       mysql:
-        image: mariadb:10.3
+        image: mariadb:10.6
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: YES
+          MARIADB_ROOT_PASSWORD: 'root'
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
 
     steps:
       - name: Clone
@@ -72,7 +63,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v2
         with:
-          node-version: 14
+          node-version: 18
           check-latest: true
 
       - name: Add to Hosts

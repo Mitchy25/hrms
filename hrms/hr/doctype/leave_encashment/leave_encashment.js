@@ -27,6 +27,8 @@ frappe.ui.form.on("Leave Encashment", {
 		if (frm.doc.__islocal && !frappe.user_roles.includes("Employee")) {
 			frm.set_intro(__("Fill the form and save it"));
 		}
+
+		hrms.leave_utils.add_view_ledger_button(frm);
 	},
 	employee: function (frm) {
 		if (frm.doc.employee) {
@@ -43,7 +45,10 @@ frappe.ui.form.on("Leave Encashment", {
 		frm.trigger("get_leave_details_for_encashment");
 	},
 	get_leave_details_for_encashment: function (frm) {
-		if (frm.doc.docstatus == 0 && frm.doc.employee && frm.doc.leave_type) {
+		frm.set_value("actual_encashable_days", 0);
+		frm.set_value("encashment_days", 0);
+
+		if (frm.doc.docstatus === 0 && frm.doc.employee && frm.doc.leave_type) {
 			return frappe.call({
 				method: "get_leave_details_for_encashment",
 				doc: frm.doc,

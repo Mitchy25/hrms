@@ -118,7 +118,7 @@ frappe.ui.form.on("Employee Attendance Tool", {
 				data: data,
 				dynamicRowHeight: true,
 				inlineFilters: true,
-				layout: "fixed",
+				layout: "fluid",
 				cellHeight: 35,
 				noDataMessage: __("No Data"),
 				disableReorderColumn: true,
@@ -137,7 +137,7 @@ frappe.ui.form.on("Employee Attendance Tool", {
 			{
 				name: "employee",
 				id: "employee",
-				content: `${__("Employee")}`,
+				content: __("Employee"),
 				editable: false,
 				sortable: false,
 				focusable: false,
@@ -148,7 +148,7 @@ frappe.ui.form.on("Employee Attendance Tool", {
 			{
 				name: "status",
 				id: "status",
-				content: `${__("Status")}`,
+				content: __("Status"),
 				editable: false,
 				sortable: false,
 				focusable: false,

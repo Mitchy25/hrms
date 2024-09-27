@@ -11,6 +11,7 @@ from frappe.utils import flt, nowdate
 import erpnext
 from erpnext.accounts.doctype.journal_entry.journal_entry import get_default_bank_cash_account
 
+import hrms
 from hrms.hr.utils import validate_active_employee
 
 
@@ -26,12 +27,27 @@ class EmployeeAdvance(Document):
 
 	def validate(self):
 		validate_active_employee(self.employee)
+		self.validate_exchange_rate()
 		self.set_status()
 		self.set_pending_amount()
 
 	def on_cancel(self):
 		self.ignore_linked_doctypes = "GL Entry"
 		self.set_status(update=True)
+
+	def on_update(self):
+		self.publish_update()
+
+	def after_delete(self):
+		self.publish_update()
+
+	def publish_update(self):
+		employee_user = frappe.db.get_value("Employee", self.employee, "user_id", cache=True)
+		hrms.refetch_resource("hrms:employee_advance_balance", employee_user)
+
+	def validate_exchange_rate(self):
+		if not self.exchange_rate:
+			frappe.throw(_("Exchange Rate cannot be zero."))
 
 	def set_status(self, update=False):
 		precision = self.precision("paid_amount")
@@ -66,6 +82,8 @@ class EmployeeAdvance(Document):
 
 		if update:
 			self.db_set("status", status)
+			self.publish_update()
+			self.notify_update()
 		else:
 			self.status = status
 

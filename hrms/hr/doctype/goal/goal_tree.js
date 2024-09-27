@@ -246,35 +246,50 @@ frappe.treeview_settings["Goal"] = {
 					],
 					primary_action: function () {
 						dialog.hide();
-						return frappe
-							.call({
-								method: "hrms.hr.doctype.goal.goal.update_progress",
-								args: {
-									progress: dialog.get_values()["progress"],
-									goal: node.data.value,
-								},
-							})
-							.then((r) => {
-								if (!r.exc && r.message) {
-									frappe.treeview_settings["Goal"].treeview.tree.load_children(
-										node.parent_node,
-										true,
-									);
-
-									frappe.show_alert({
-										message: __("Progress Updated successfully"),
-										indicator: "green",
-									});
-								} else {
-									frappe.msgprint(__("Could not update progress"));
-								}
-							});
+						return update_progress(node, dialog.get_values()["progress"]);
 					},
 					primary_action_label: __("Update"),
 				});
 				dialog.show();
 			},
 		},
+		{
+			label: __("Mark as Completed"),
+			condition: function (node) {
+				return !node.is_root && !node.expandable && node.data.status != "Completed";
+			},
+			click: function (node) {
+				frappe.confirm(__("Mark {0} as Completed?", [node.label.bold()]), () =>
+					update_progress(node, 100),
+				);
+			},
+		},
 	],
 	extend_toolbar: true,
 };
+
+function update_progress(node, progress) {
+	return frappe
+		.call({
+			method: "hrms.hr.doctype.goal.goal.update_progress",
+			args: {
+				goal: node.data.value,
+				progress: progress,
+			},
+		})
+		.then((r) => {
+			if (!r.exc && r.message) {
+				frappe.treeview_settings["Goal"].treeview.tree.load_children(
+					frappe.treeview_settings["Goal"].treeview.tree.root_node,
+					true,
+				);
+
+				frappe.show_alert({
+					message: __("Goal updated successfully"),
+					indicator: "green",
+				});
+			} else {
+				frappe.msgprint(__("Could not update Goal"));
+			}
+		});
+}

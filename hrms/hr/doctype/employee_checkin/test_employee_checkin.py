@@ -4,7 +4,7 @@
 from datetime import datetime, timedelta
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import (
 	add_days,
 	get_time,
@@ -20,6 +20,7 @@ from erpnext.setup.doctype.holiday_list.test_holiday_list import set_holiday_lis
 
 from hrms.hr.doctype.employee_checkin.employee_checkin import (
 	add_log_based_on_employee_field,
+	bulk_fetch_shift,
 	calculate_working_hours,
 	mark_attendance_and_link_log,
 )
@@ -37,6 +38,37 @@ class TestEmployeeCheckin(FrappeTestCase):
 		from_date = get_year_start(getdate())
 		to_date = get_year_ending(getdate())
 		self.holiday_list = make_holiday_list(from_date=from_date, to_date=to_date)
+
+	def test_geolocation_tracking(self):
+		employee = make_employee("test_add_log_based_on_employee_field@example.com")
+		checkin = make_checkin(employee)
+		checkin.latitude = 23.31773
+		checkin.longitude = 66.82876
+		checkin.save()
+
+		# geolocation tracking is disabled
+		self.assertIsNone(checkin.geolocation)
+
+		hr_settings = frappe.get_single("HR Settings")
+		hr_settings.allow_geolocation_tracking = 1
+		hr_settings.save()
+
+		checkin.save()
+		self.assertEqual(
+			checkin.geolocation,
+			frappe.json.dumps(
+				{
+					"type": "FeatureCollection",
+					"features": [
+						{
+							"type": "Feature",
+							"properties": {},
+							"geometry": {"type": "Point", "coordinates": [66.82876, 23.31773]},
+						}
+					],
+				}
+			),
+		)
 
 	def test_add_log_based_on_employee_field(self):
 		employee = make_employee("test_add_log_based_on_employee_field@example.com")
@@ -161,6 +193,7 @@ class TestEmployeeCheckin(FrappeTestCase):
 		log = make_checkin(employee, timestamp)
 		self.assertIsNone(log.shift)
 
+	@change_settings("HR Settings", {"allow_multiple_shift_assignments": 1})
 	def test_fetch_shift_for_assignment_with_end_date(self):
 		employee = make_employee("test_employee_checkin@example.com", company="_Test Company")
 
@@ -423,6 +456,7 @@ class TestEmployeeCheckin(FrappeTestCase):
 			self.assertEqual(log.shift_actual_start, start_timestamp)
 			self.assertEqual(log.shift_actual_end, end_timestamp)
 
+	@change_settings("HR Settings", {"allow_multiple_shift_assignments": 1})
 	def test_consecutive_shift_assignments_overlapping_within_grace_period(self):
 		# test adjustment for start and end times if they are overlapping
 		# within "begin_check_in_before_shift_start_time" and "allow_check_out_after_shift_end_time" periods
@@ -456,6 +490,40 @@ class TestEmployeeCheckin(FrappeTestCase):
 		timestamp = datetime.combine(date, get_time("12:01:00"))
 		log = make_checkin(employee, timestamp)
 		self.assertEqual(log.shift, shift2.name)
+
+	def test_bulk_fetch_shift(self):
+		emp1 = make_employee("emp1@example.com", company="_Test Company")
+		emp2 = make_employee("emp2@example.com", company="_Test Company")
+
+		# 8 - 12
+		shift1 = setup_shift_type(shift_type="Shift 1")
+		# 12:30 - 16:30
+		shift2 = setup_shift_type(shift_type="Shift 2", start_time="12:30:00", end_time="16:30:00")
+
+		frappe.db.set_value("Employee", emp1, "default_shift", shift1.name)
+		frappe.db.set_value("Employee", emp2, "default_shift", shift1.name)
+
+		date = getdate()
+		timestamp = datetime.combine(date, get_time("12:30:00"))
+
+		log1 = make_checkin(emp1, timestamp)
+		self.assertEqual(log1.shift, shift1.name)
+		log2 = make_checkin(emp2, timestamp)
+		self.assertEqual(log2.shift, shift1.name)
+
+		mark_attendance_and_link_log([log2], "Present", date)
+
+		make_shift_assignment(shift2.name, emp1, date)
+		make_shift_assignment(shift2.name, emp2, date)
+
+		bulk_fetch_shift([log1.name, log2.name])
+
+		log1.reload()
+		# shift changes according to the new assignment
+		self.assertEqual(log1.shift, shift2.name)
+		log2.reload()
+		# shift does not change since attendance is already marked
+		self.assertEqual(log2.shift, shift1.name)
 
 
 def make_n_checkins(employee, n, hours_to_reverse=1):

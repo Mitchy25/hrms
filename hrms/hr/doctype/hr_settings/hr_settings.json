@@ -46,7 +46,10 @@
   "employee_exit_section",
   "exit_questionnaire_web_form",
   "column_break_34",
-  "exit_questionnaire_notification_template"
+  "exit_questionnaire_notification_template",
+  "attendance_settings_section",
+  "allow_employee_checkin_from_mobile_app",
+  "allow_geolocation_tracking"
  ],
  "fields": [
   {
@@ -287,7 +290,7 @@
    "read_only": 1
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "allow_multiple_shift_assignments",
    "fieldtype": "Check",
    "label": "Allow Multiple Shift Assignments for Same Date"
@@ -296,6 +299,23 @@
    "fieldname": "shift_settings_section",
    "fieldtype": "Section Break",
    "label": "Shift Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_employee_checkin_from_mobile_app",
+   "fieldtype": "Check",
+   "label": "Allow Employee Checkin from Mobile App"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_geolocation_tracking",
+   "fieldtype": "Check",
+   "label": "Allow Geolocation Tracking"
+  },
+  {
+   "fieldname": "attendance_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Attendance Settings"
   }
  ],
  "icon": "fa fa-cog",

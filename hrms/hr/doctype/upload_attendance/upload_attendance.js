@@ -31,11 +31,12 @@ hrms.hr.AttendanceControlPanel = class AttendanceControlPanel extends frappe.ui.
 	}
 
 	show_upload() {
-		var $wrapper = $(cur_frm.fields_dict.upload_html.wrapper).empty();
+		let $wrapper = $(this.frm.fields_dict.upload_html.wrapper).empty();
 		new frappe.ui.FileUploader({
 			wrapper: $wrapper,
 			method: "hrms.hr.doctype.upload_attendance.upload_attendance.upload",
 		});
+		$wrapper.addClass("pb-5");
 	}
 
 	setup_import_progress() {

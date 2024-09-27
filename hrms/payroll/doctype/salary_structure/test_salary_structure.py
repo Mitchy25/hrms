@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_years, date_diff, get_first_day, nowdate
+from frappe.utils import add_years, cstr, date_diff, get_first_day, nowdate
 from frappe.utils.make_random import get_random
 
 import erpnext
@@ -19,6 +19,7 @@ from hrms.payroll.doctype.salary_slip.test_salary_slip import (
 	make_employee_salary_slip,
 )
 from hrms.payroll.doctype.salary_structure.salary_structure import make_salary_slip
+from hrms.tests.test_utils import create_employee_grade
 
 test_dependencies = ["Fiscal Year"]
 
@@ -90,23 +91,23 @@ class TestSalaryStructure(FrappeTestCase):
 			self.assertEqual(salary_slip.get("net_pay"), 78000 - salary_slip.get("total_deduction"))
 
 	def test_whitespaces_in_formula_conditions_fields(self):
+		def add_whitespaces(row):
+			row.formula = "\n%s\n\n" % row.formula
+			row.condition = "\n%s\n\n" % row.condition
+
 		salary_structure = make_salary_structure("Salary Structure Sample", "Monthly", dont_submit=True)
+		for table in ("earnings", "deductions"):
+			for row in salary_structure.get(table):
+				add_whitespaces(row)
+
+		# sanitized before validate and reset to original state to maintain readability
+		salary_structure.sanitize_condition_and_formula_fields()
 
 		for row in salary_structure.earnings:
-			row.formula = "\n%s\n\n" % row.formula
-			row.condition = "\n%s\n\n" % row.condition
+			self.assertFalse("\n" in cstr(row.formula) or "\n" in cstr(row.condition))
 
 		for row in salary_structure.deductions:
-			row.formula = "\n%s\n\n" % row.formula
-			row.condition = "\n%s\n\n" % row.condition
-
-		salary_structure.save()
-
-		for row in salary_structure.earnings:
-			self.assertFalse("\n" in row.formula or "\n" in row.condition)
-
-		for row in salary_structure.deductions:
-			self.assertFalse(("\n" in row.formula) or ("\n" in row.condition))
+			self.assertFalse("\n" in cstr(row.formula) or "\n" in cstr(row.condition))
 
 	def test_salary_structures_assignment(self):
 		company_currency = erpnext.get_default_currency()
@@ -275,15 +276,3 @@ def get_payable_account(company=None):
 	if not company:
 		company = erpnext.get_default_company()
 	return frappe.db.get_value("Company", company, "default_payroll_payable_account")
-
-
-def create_employee_grade(grade, default_structure=None):
-	if not frappe.db.exists("Employee Grade", grade):
-		frappe.get_doc(
-			{
-				"doctype": "Employee Grade",
-				"__newname": grade,
-				"default_salary_structure": default_structure,
-				"default_base_pay": 50000,
-			}
-		).insert()

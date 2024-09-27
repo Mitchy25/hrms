@@ -7,6 +7,8 @@ frappe.provide("erpnext.accounts.dimensions");
 
 frappe.ui.form.on("Payroll Entry", {
 	onload: function (frm) {
+		frm.ignore_doctypes_on_cancel_all = ["Salary Slip", "Journal Entry"];
+
 		if (!frm.doc.posting_date) {
 			frm.doc.posting_date = frappe.datetime.nowdate();
 		}
@@ -108,25 +110,33 @@ frappe.ui.form.on("Payroll Entry", {
 			.call({
 				doc: frm.doc,
 				method: "fill_employee_details",
+				freeze: true,
+				freeze_message: __("Fetching Employees"),
 			})
 			.then((r) => {
-				if (r.docs && r.docs[0].employees) {
-					frm.employees = r.docs[0].employees;
+				if (r.docs?.[0]?.employees) {
 					frm.dirty();
 					frm.save();
-					frm.refresh();
-					if (r.docs[0].validate_attendance) {
-						render_employee_attendance(frm, r.message);
-					}
-					frm.scroll_to_field("employees");
 				}
+
+				frm.refresh();
+
+				if (r.docs?.[0]?.validate_attendance) {
+					render_employee_attendance(frm, r.message);
+				}
+				frm.scroll_to_field("employees");
 			});
 	},
 
 	create_salary_slips: function (frm) {
 		frm.call({
 			doc: frm.doc,
-			method: "create_salary_slips",
+			method: "run_doc_method",
+			args: {
+				method: "create_salary_slips",
+				dt: "Payroll Entry",
+				dn: frm.doc.name,
+			},
 		});
 	},
 
@@ -148,19 +158,16 @@ frappe.ui.form.on("Payroll Entry", {
 	},
 
 	add_bank_entry_button: function (frm) {
-		frappe.call({
-			method: "hrms.payroll.doctype.payroll_entry.payroll_entry.payroll_entry_has_bank_entries",
-			args: {
-				name: frm.doc.name,
-				payroll_payable_account: frm.doc.payroll_payable_account,
-			},
-			callback: function (r) {
-				if (r.message && !r.message.submitted) {
-					frm.add_custom_button(__("Make Bank Entry"), function () {
-						make_bank_entry(frm);
-					}).addClass("btn-primary");
-				}
-			},
+		frm.call("has_bank_entries").then((r) => {
+			if (!r.message.has_bank_entries) {
+				frm.add_custom_button(__("Make Bank Entry"), function () {
+					make_bank_entry(frm);
+				}).addClass("btn-primary");
+			} else if (!r.message.has_bank_entries_for_withheld_salaries) {
+				frm.add_custom_button(__("Release Withheld Salaries"), function () {
+					make_bank_entry(frm, (for_withheld_salaries = 1));
+				}).addClass("btn-primary");
+			}
 		});
 	},
 
@@ -220,6 +227,7 @@ frappe.ui.form.on("Payroll Entry", {
 			"branch",
 			"designation",
 			"salary_slip_based_on_timesheet",
+			"grade",
 		];
 
 		fields.forEach((field) => {
@@ -299,7 +307,9 @@ frappe.ui.form.on("Payroll Entry", {
 	department: function (frm) {
 		frm.events.clear_employee_table(frm);
 	},
-
+	grade: function (frm) {
+		frm.events.clear_employee_table(frm);
+	},
 	designation: function (frm) {
 		frm.events.clear_employee_table(frm);
 	},
@@ -362,7 +372,7 @@ frappe.ui.form.on("Payroll Entry", {
 	},
 
 	validate_attendance: function (frm) {
-		if (frm.doc.validate_attendance && frm.doc.employees) {
+		if (frm.doc.validate_attendance && frm.doc.employees?.length > 0) {
 			frappe.call({
 				method: "get_employees_with_unmarked_attendance",
 				args: {},
@@ -408,12 +418,17 @@ const submit_salary_slip = function (frm) {
 	);
 };
 
-let make_bank_entry = function (frm) {
-	var doc = frm.doc;
+let make_bank_entry = function (frm, for_withheld_salaries = 0) {
+	const doc = frm.doc;
 	if (doc.payment_account) {
 		return frappe.call({
-			doc: cur_frm.doc,
-			method: "make_payment_entry",
+			method: "run_doc_method",
+			args: {
+				method: "make_bank_entry",
+				dt: "Payroll Entry",
+				dn: frm.doc.name,
+				args: { for_withheld_salaries: for_withheld_salaries },
+			},
 			callback: function () {
 				frappe.set_route("List", "Journal Entry", {
 					"Journal Entry Account.reference_name": frm.doc.name,

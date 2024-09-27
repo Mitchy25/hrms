@@ -88,7 +88,7 @@ def add_date_to_holiday_list(date: str, holiday_list: str) -> None:
 	holiday_list.save()
 
 
-def create_company(name: str = "_Test Company"):
+def create_company(name: str = "_Test Company", is_group: 0 | 1 = 0, parent_company: str | None = None):
 	if frappe.db.exists("Company", name):
 		return frappe.get_doc("Company", name)
 
@@ -98,6 +98,8 @@ def create_company(name: str = "_Test Company"):
 			"company_name": name,
 			"default_currency": "INR",
 			"country": "India",
+			"is_group": is_group,
+			"parent_company": parent_company,
 		}
 	).insert()
 
@@ -112,6 +114,19 @@ def create_department(name: str, company: str = "_Test Company") -> str:
 	department.update({"doctype": "Department", "department_name": name, "company": "_Test Company"})
 	department.insert()
 	return department.name
+
+
+def create_employee_grade(grade: str, default_structure: str | None = None, default_base: float = 50000):
+	if frappe.db.exists("Employee Grade", grade):
+		return frappe.get_doc("Employee Grade", grade)
+	return frappe.get_doc(
+		{
+			"doctype": "Employee Grade",
+			"__newname": grade,
+			"default_salary_structure": default_structure,
+			"default_base_pay": default_base,
+		}
+	).insert()
 
 
 def create_job_applicant(**args):
@@ -134,3 +149,7 @@ def create_job_applicant(**args):
 	job_applicant.update(filters)
 	job_applicant.save()
 	return job_applicant
+
+
+def get_email_by_subject(subject: str) -> str | None:
+	return frappe.db.exists("Email Queue", {"message": ("like", f"%{subject}%")})

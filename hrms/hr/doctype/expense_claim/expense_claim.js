@@ -255,14 +255,6 @@ frappe.ui.form.on("Expense Claim", {
 		frm.toggle_reqd("mode_of_payment", frm.doc.is_paid);
 	},
 
-	employee_name: function (frm) {
-		erpnext.expense_claim.set_title(frm);
-	},
-
-	task: function (frm) {
-		erpnext.expense_claim.set_title(frm);
-	},
-
 	employee: function (frm) {
 		frm.events.get_advances(frm);
 	},
@@ -282,17 +274,18 @@ frappe.ui.form.on("Expense Claim", {
 			}
 		});
 	},
+
 	get_taxes: function (frm) {
-		if (frm.doc.taxes) {
-			frappe.call({
-				method: "calculate_taxes",
-				doc: frm.doc,
-				callback: () => {
-					refresh_field("taxes");
-					frm.trigger("update_employee_advance_claimed_amount");
-				},
-			});
-		}
+		if (!frm.doc.taxes.length) return;
+
+		frappe.call({
+			method: "calculate_taxes",
+			doc: frm.doc,
+			callback: () => {
+				refresh_field("taxes");
+				frm.trigger("update_employee_advance_claimed_amount");
+			},
+		});
 	},
 
 	get_advances: function (frm) {
